@@ -1,209 +1,174 @@
-package com.example.myapp // 본인의 패키지 이름 확인
+package com.example.myapp
 
 import android.Manifest
-import android.app.Activity
+import android.content.ContentValues
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.media.MediaRecorder
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
-import android.os.Environment
-import android.view.View
+import android.provider.MediaStore
 import android.widget.Button
 import android.widget.TextView
-import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.android.gms.common.Scopes
-import com.google.android.gms.common.SignInButton
-import com.google.android.gms.common.api.Scope
-import java.io.File
-import java.io.IOException
+import androidx.core.content.ContextCompat
+import androidx.core.content.PermissionChecker
+import androidx.work.Constraints
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
+import androidx.work.WorkManager
+import java.text.SimpleDateFormat
+import java.util.*
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : ComponentActivity() {
 
-    // --- 녹음 관련 변수들 ---
-    private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.RECORD_AUDIO)
-    private val PERMISSION_REQUEST_CODE = 200
-    private var mediaRecorder: MediaRecorder? = null
-    private var isRecording = false
-    private lateinit var outputFile: String
-    private lateinit var recordButton: Button
+    private var recorder: MediaRecorder? = null
+    private var currentOutputUri: Uri? = null
+    private lateinit var txtStatus: TextView
+    private val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
 
-    // --- 구글 로그인 관련 변수들 ---
-    private lateinit var mGoogleSignInClient: GoogleSignInClient
-    private lateinit var signInButton: SignInButton
-    private lateinit var signOutButton: Button
-    private lateinit var statusTextView: TextView
+    // 권한 요청 런처
+    private val audioPerms = mutableListOf(Manifest.permission.RECORD_AUDIO).apply {
+        if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
+        if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.READ_MEDIA_AUDIO)
+    }.toTypedArray()
+    private val reqPerms = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { /* no-op */ }
+
+    // 드라이브 폴더 선택 (SAF)
+    private val pickTree = registerForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) {
+            // 권한 영속화
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+            DriveFolderStore.save(this, uri)
+            txtStatus.text = "드라이브 폴더 연결 완료"
+        } else {
+            txtStatus.text = "드라이브 폴더 연결 취소"
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        val btnRecord = findViewById<Button>(R.id.btnRecord)
+        val btnPickDriveFolder = findViewById<Button>(R.id.btnPickDriveFolder)
+        val btnUpload = findViewById<Button>(R.id.btnUpload)
+        txtStatus = findViewById(R.id.txtStatus)
 
-        // --- UI 요소 초기화 ---
-        recordButton = findViewById(R.id.recordButton)
-        signInButton = findViewById(R.id.signInButton)
-        signOutButton = findViewById(R.id.signOutButton)
-        statusTextView = findViewById(R.id.statusTextView)
+        // 권한 요청(필요 시)
+        ensurePermissions()
 
-        // --- 녹음 버튼 리스너 ---
-        recordButton.setOnClickListener {
-            if (isRecording) {
-                stopRecording()
-            } else {
-                startRecording()
+        btnRecord.setOnClickListener {
+            if (recorder == null) startRecording(btnRecord) else stopRecording(btnRecord)
+        }
+
+        btnPickDriveFolder.setOnClickListener {
+            pickTree.launch(null)
+        }
+
+        btnUpload.setOnClickListener {
+            enqueueUpload()
+        }
+    }
+
+    private fun ensurePermissions() {
+        val needed = audioPerms.filter {
+            ContextCompat.checkSelfPermission(this, it) != PermissionChecker.PERMISSION_GRANTED
+        }
+        if (needed.isNotEmpty()) reqPerms.launch(needed.toTypedArray())
+    }
+
+    private fun startRecording(btn: Button) {
+        // MediaStore에 "Recordings/myapp"으로 m4a 항목 예약
+        val filename = "rec_${sdf.format(Date())}.m4a"
+        val values = ContentValues().apply {
+            put(MediaStore.Audio.Media.DISPLAY_NAME, filename)
+            put(MediaStore.Audio.Media.MIME_TYPE, "audio/mp4")
+            // 상위 저장소 기준의 상대경로
+            put(MediaStore.Audio.Media.RELATIVE_PATH, "Recordings/myapp")
+            if (Build.VERSION.SDK_INT >= 29) {
+                put(MediaStore.Audio.Media.IS_PENDING, 1)
             }
         }
+        val collection = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+        val itemUri = contentResolver.insert(collection, values)
+            ?: run { txtStatus.text = "파일 생성 실패"; return }
 
-        // --- 구글 로그인 설정 ---
-        // 1. 로그인 옵션 설정 (GSO)
-        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestEmail() // 사용자의 이메일 주소 요청
-            // ▼▼▼ 여기가 핵심! 드라이브에 파일을 생성할 수 있는 권한을 요청합니다. ▼▼▼
-            .requestScopes(Scope(Scopes.DRIVE_FILE))
-            .build()
-
-        // 2. 구글 로그인 클라이언트 생성
-        mGoogleSignInClient = GoogleSignIn.getClient(this, gso)
-
-        // 3. 로그인 버튼 리스너
-        signInButton.setOnClickListener {
-            signIn()
-        }
-
-        // 4. 로그아웃 버튼 리스너
-        signOutButton.setOnClickListener {
-            signOut()
-        }
-    }
-
-    override fun onStart() {
-        super.onStart()
-        // 앱이 시작될 때, 이전에 로그인한 계정이 있는지 확인
-        val account = GoogleSignIn.getLastSignedInAccount(this)
-        updateUI(account) // UI 상태 업데이트
-    }
-
-    // 로그인 결과를 처리하는 부분
-    private val signInResultLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-            try {
-                val account = task.result
-                updateUI(account)
-            } catch (e: Exception) {
-                // 로그인 실패
-                updateUI(null)
-            }
-        } else {
-            // 로그인 취소
-            Toast.makeText(this, "Google Sign In cancelled", Toast.LENGTH_SHORT).show()
-            updateUI(null)
-        }
-    }
-
-    // 로그인 시작
-    private fun signIn() {
-        val signInIntent = mGoogleSignInClient.signInIntent
-        signInResultLauncher.launch(signInIntent)
-    }
-
-    // 로그아웃 처리
-    private fun signOut() {
-        mGoogleSignInClient.signOut().addOnCompleteListener(this) {
-            updateUI(null) // 로그아웃 후 UI 업데이트
-        }
-    }
-
-    // UI 상태 업데이트 (로그인/로그아웃 시)
-    private fun updateUI(account: GoogleSignInAccount?) {
-        if (account != null) {
-            // 로그인 성공 상태
-            statusTextView.text = "로그인됨: ${account.email}"
-            signInButton.visibility = View.GONE
-            signOutButton.visibility = View.VISIBLE
-            recordButton.isEnabled = true // 녹음 버튼 활성화
-        } else {
-            // 로그아웃 상태
-            statusTextView.text = "로그인이 필요합니다."
-            signInButton.visibility = View.VISIBLE
-            signOutButton.visibility = View.GONE
-            recordButton.isEnabled = false // 녹음 버튼 비활성화
-        }
-    }
-
-    // --- 녹음 관련 함수들 ---
-
-    private fun startRecording() {
-        if (!hasPermissions()) {
-            ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, PERMISSION_REQUEST_CODE)
+        val pfd = contentResolver.openFileDescriptor(itemUri, "w") ?: run {
+            txtStatus.text = "FD 열기 실패"
             return
         }
 
-        val recordingsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_RECORDINGS)
-        val appDir = File(recordingsDir, "myapp")
-        if (!appDir.exists()) {
-            appDir.mkdirs()
-        }
-        outputFile = "${appDir.absolutePath}/${System.currentTimeMillis()}.m4a"
-
-        mediaRecorder = MediaRecorder().apply {
-            setAudioSource(MediaRecorder.AudioSource.MIC)
+        recorder = MediaRecorder().apply {
+            if (Build.VERSION.SDK_INT >= 31) setAudioSource(MediaRecorder.AudioSource.VOICE_RECOGNITION)
+            else setAudioSource(MediaRecorder.AudioSource.MIC)
             setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
             setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            setOutputFile(outputFile)
-            try {
-                prepare()
-                start()
-                isRecording = true
-                recordButton.text = "녹음 중지"
-            } catch (e: IOException) {
-                e.printStackTrace()
-            }
+            setAudioEncodingBitRate(128_000)
+            setAudioSamplingRate(44_100)
+            setOutputFile(pfd.fileDescriptor)
+            prepare()
+            start()
         }
+        currentOutputUri = itemUri
+        btn.text = "녹음 정지"
+        txtStatus.text = "녹음 중… $filename"
+        pfd.close()
     }
 
-    private fun stopRecording() {
-        mediaRecorder?.apply {
-            try {
+    private fun stopRecording(btn: Button) {
+        try {
+            recorder?.apply {
                 stop()
+                reset()
                 release()
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
+            // IS_PENDING → 0으로 내려 commit
+            currentOutputUri?.let { uri ->
+                if (Build.VERSION.SDK_INT >= 29) {
+                    val cv = ContentValues().apply {
+                        put(MediaStore.Audio.Media.IS_PENDING, 0)
+                    }
+                    contentResolver.update(uri, cv, null, null)
+                }
+            }
+            txtStatus.text = "저장 완료: ${currentOutputUri}"
+        } catch (e: Exception) {
+            txtStatus.text = "정지 오류: ${e.message}"
+        } finally {
+            recorder = null
+            currentOutputUri = null
+            btn.text = "녹음 시작"
         }
-        mediaRecorder = null
-        isRecording = false
-        recordButton.text = "녹음 시작"
-        Toast.makeText(this, "녹음이 저장되었습니다: $outputFile", Toast.LENGTH_LONG).show()
-
-        // TODO: 여기에 녹음된 파일을 구글 드라이브에 업로드하는 코드를 추가할 것입니다.
     }
 
-    private fun hasPermissions(): Boolean {
-        return REQUIRED_PERMISSIONS.all {
-            ActivityCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+    private fun enqueueUpload() {
+        val tree = DriveFolderStore.load(this)
+        if (tree == null) {
+            txtStatus.text = "먼저 [드라이브 폴더 연결]을 눌러 폴더를 선택하세요."
+            return
         }
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
+            .build()
+        val req = OneTimeWorkRequestBuilder<UploadWorker>()
+            .setConstraints(constraints)
+            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+            .build()
+        WorkManager.getInstance(this).enqueue(req)
+        txtStatus.text = "업로드 작업 대기열에 추가됨"
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERMISSION_REQUEST_CODE) {
-            if (grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-                startRecording()
-            } else {
-                Toast.makeText(this, "권한이 거부되어 녹음을 시작할 수 없습니다.", Toast.LENGTH_SHORT).show()
-            }
-        }
+    override fun onDestroy() {
+        super.onDestroy()
+        recorder?.release()
+        recorder = null
     }
 }

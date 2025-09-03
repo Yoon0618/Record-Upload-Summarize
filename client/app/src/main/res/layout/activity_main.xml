@@ -1,37 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:padding="20dp"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:gravity="center"
-    android:orientation="vertical"
-    tools:context=".MainActivity">
+    android:layout_height="match_parent">
 
     <Button
-        android:id="@+id/recordButton"
-        android:layout_width="wrap_content"
+        android:id="@+id/btnRecord"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="녹음 시작" />
+        android:text="녹음 시작"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <Button
+        android:id="@+id/btnPickDriveFolder"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="드라이브 폴더 연결"
+        app:layout_constraintTop_toBottomOf="@id/btnRecord"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp"/>
+
+    <Button
+        android:id="@+id/btnUpload"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="업로드"
+        app:layout_constraintTop_toBottomOf="@id/btnPickDriveFolder"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp"/>
 
     <TextView
-        android:id="@+id/statusTextView"
-        android:layout_width="wrap_content"
+        android:id="@+id/txtStatus"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:text="로그인이 필요합니다." />
+        android:text="상태 메시지"
+        android:textAppearance="?attr/textAppearanceBodyMedium"
+        app:layout_constraintTop_toBottomOf="@id/btnUpload"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="24dp"/>
 
-    <com.google.android.gms.common.SignInButton
-        android:id="@+id/signInButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp" />
-
-    <Button
-        android:id="@+id/signOutButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="로그아웃"
-        android:visibility="gone" />
-
-</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>
