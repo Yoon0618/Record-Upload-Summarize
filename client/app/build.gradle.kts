@@ -1,54 +1,58 @@
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    id("com.android.application") version "8.13.0"
+    id("org.jetbrains.kotlin.android") version "2.0.20"
 }
+
 
 android {
     namespace = "com.example.myapp"
     compileSdk = 35
 
+
     defaultConfig {
-        applicationId = "com.example.recorderdrive"
-        minSdk = 26
+        applicationId = "com.example.myapp"
+        minSdk = 29
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
-
-        // Worker에서 포그라운드 알림 채널 ID 전달
-        buildConfigField("String", "UPLOAD_CHANNEL_ID", "\"upload_worker\"")
     }
+
 
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro",
+                "proguard-rules.pro"
             )
         }
     }
-
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "21" }
-
-    buildFeatures {
-        buildConfig = true
-    }
+    kotlinOptions { jvmTarget = "17" }
 }
 
+
 dependencies {
+// Google Sign-In (Play Services Auth)
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
+
+
+// Google OAuth token helper (GoogleAccountCredential)
+    implementation("com.google.api-client:google-api-client-android:2.8.1")
+
+
+// WorkManager (백그라운드 업로드)
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
+
+
+// OkHttp (Drive REST 업로드)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+
+// AndroidX
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
-    implementation("androidx.activity:activity-ktx:1.9.2")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-
-    // WorkManager (KTX). 2.10.3는 2025-08 기준 안정판.
-    implementation("androidx.work:work-runtime-ktx:2.10.3") // :contentReference[oaicite:2]{index=2}
-
-    // SAF 편의
-    implementation("androidx.documentfile:documentfile:1.0.1")
-}

@@ -1,35 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 마이크 녹음 -->
+
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-
-    <!-- Android 13+에서 알림 권한(Worker의 포그라운드 알림 표시용) -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <!-- Android 14+ 포그라운드 서비스 유형: 데이터 동기화 -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-
-    <!-- Android 13+에서 오디오 미디어 읽기(미디어스토어 쿼리용; 우리가 만든 파일만 다뤄도 무방하나 안전하게) -->
+    <!-- Android 13+에서 오디오 미디어 열람(목록 스캔용). 자체 생성 파일 업로드만 할 거면 없어도 동작 -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Android 12-32 범위에서 외부저장소 읽기 (minSdk 26 대응) -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32"/>
 
     <application
-        android:name=".App"
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
-        android:label="RecorderDrive"
-        android:theme="@style/Theme.RecorderDrive">
+        android:label="MyApp"
+        android:theme="@style/Theme.Material3.DayNight.NoActionBar">
+
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+
     </application>
 </manifest>

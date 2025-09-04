@@ -5,6 +5,8 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -12,5 +14,7 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "RecorderDrive"
+
+
+rootProject.name = "MyApp"
 include(":app")

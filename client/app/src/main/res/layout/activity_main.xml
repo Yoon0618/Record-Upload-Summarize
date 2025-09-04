@@ -1,49 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:padding="20dp"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+
+    <Button
+        android:id="@+id/btnSignIn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Sign in with Google" />
+
 
     <Button
         android:id="@+id/btnRecord"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="녹음 시작"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        android:layout_marginTop="12dp"
+        android:text="Start Recording" />
+
 
     <Button
-        android:id="@+id/btnPickDriveFolder"
-        android:layout_width="0dp"
+        android:id="@+id/btnUploadAll"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="드라이브 폴더 연결"
-        app:layout_constraintTop_toBottomOf="@id/btnRecord"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginTop="12dp"
+        android:text="Upload All" />
 
-    <Button
-        android:id="@+id/btnUpload"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:text="업로드"
-        app:layout_constraintTop_toBottomOf="@id/btnPickDriveFolder"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="16dp"/>
 
     <TextView
         android:id="@+id/txtStatus"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="상태 메시지"
-        android:textAppearance="?attr/textAppearanceBodyMedium"
-        app:layout_constraintTop_toBottomOf="@id/btnUpload"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginTop="24dp"/>
-
-</androidx.constraintlayout.widget.ConstraintLayout>
+        android:layout_marginTop="16dp"
+        android:text="Ready"
+        android:textSize="14sp" />
+</LinearLayout>
